@@ -5,9 +5,15 @@ import { View, Platform, KeyboardAvoidingView } from "react-native";
 
 // Gifted Chat
 import { GiftedChat, Bubble, InputToolbar } from "react-native-gifted-chat";
-// Map View for messages
+
+// AsyncStorage for offline viewing
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// NetInfo to see if user is online or not
+import NetInfo from '@react-native-community/netinfo';
 
 
+// Firebase as our database
 import firebase from "firebase";
 import("firebase/firestore");
 
@@ -66,6 +72,7 @@ export default class Chat extends React.Component {
       }),
       () => {
         this.addMessage();
+        this.saveMessages();
       }
     );
   }
@@ -109,9 +116,63 @@ export default class Chat extends React.Component {
     );
   }
 
+  async getMessages() {
+    let messages = '';
+    try {
+      messages = await AsyncStorage.getItem('messages') || [];
+      this.setState({
+        messages: JSON.parse(messages)
+      });
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
+
+  async saveMessages() {
+    try {
+      await AsyncStorage.setItem('messages', JSON.stringify(this.state.messages));
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
+
+  async deleteMessages() {
+    try {
+      await AsyncStorage.removeItem('messages');
+      this.setState({
+        messages: []
+      })
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
+
+  renderInputToolbar(props) {
+    if (this.state.isConnected == false) {
+    } else {
+      return(
+        <InputToolbar
+        {...props}
+        />
+      );
+    }
+  };
+
   componentDidMount() {
     const name = this.props.route.params.username;
     this.props.navigation.setOptions({ title: name });
+
+    // Check online status of user
+    NetInfo.fetch().then((connection) => {
+      if (connection.isConnected) {
+        // online
+        console.log("online");
+        this.setState({
+          isConnected: true,
+        });
+
+        this.getMessages();
+        this.renderInputToolbar();
 
         this.authUnsubscribe = firebase.auth().onAuthStateChanged((user) => {
           if (!user) {
@@ -137,7 +198,20 @@ export default class Chat extends React.Component {
             .orderBy("createdAt", "desc")
             .onSnapshot(this.onCollectionUpdate);
         });
-      };
+      } else {
+        // offline
+        console.log("offline");
+        this.setState({
+          isConnected: false,
+        });
+        // hide Input Toolbar to prevent new messages in offline mode
+        this.renderInputToolbar();
+
+        // get messages from offline storage
+        this.getMessages();
+      }
+    });
+  };
     
 
   componentWillUnmount() {
