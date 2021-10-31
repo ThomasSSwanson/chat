@@ -12,10 +12,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // NetInfo to see if user is online or not
 import NetInfo from '@react-native-community/netinfo';
 
+// allows us to send geolocation
+import MapView from 'react-native-maps';
+
 
 // Firebase as our database
 import firebase from "firebase";
 import("firebase/firestore");
+
+// Seperating custom actions for organization
+import CustomActions from './CustomActions';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKRyLhlgiIUvj4mwpmIHOpG2y4jJTwI6U",
@@ -49,6 +55,34 @@ export default class Chat extends React.Component {
       },
       isConnected: false,
     };
+  }
+
+  // custom action function that takes multiple actions and pins them to one component
+  renderCustomActions = (props) => {
+    return <CustomActions {...props} />;
+  };
+
+  renderCustomView(props) {
+    const { currentMessage } = props;
+    if (currentMessage.location) {
+      return (
+        <MapView
+          style={{
+            width: 150,
+            height: 100,
+            borderRadius: 13,
+            margin: 3
+          }}
+          region={{
+            latitude: currentMessage.location.latitude,
+            longitude: currentMessage.location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        />
+      );
+    }
+    return null;
   }
 
   addMessage() {
@@ -232,16 +266,16 @@ export default class Chat extends React.Component {
         <GiftedChat
           renderBubble={this.renderBubble.bind(this)}
           messages={this.state.messages}
-          messages={this.state.messages}
+          renderCustomView={this.renderCustomView.bind(this)}
           onSend={(messages) => this.onSend(messages)}
           user={this.state.user}
+          renderActions={this.renderCustomActions}
         />
         {Platform.OS === "android" ? (
           <KeyboardAvoidingView behaviour="height" />
         ) : null}
         {/* This part is important for Issues with Android Keyboard covering Chat window */}
       </View>
-      // </View>
     );
   }
 }
